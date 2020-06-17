@@ -64,11 +64,25 @@ class SMC:
         self.acc_rate = 1
         self.acc_per_chain = np.ones(self.draws)
         self.variables = inputvars(self.model.vars)
+<<<<<<< HEAD
         self.dimension = sum(v.dsize for v in self.variables)
         self.scalings = np.ones(self.draws) * 2.38 / (self.dimension) ** 0.5
         self.weights = np.ones(self.draws) / self.draws
         self.log_marginal_likelihood = 0
         self.sim_data = []
+=======
+        dimension = sum(v.dsize for v in self.variables)
+        self.scalings = np.ones(self.draws) * min(1, 2.38 ** 2 / dimension)
+        self.discrete = np.concatenate(
+            [[v.dtype in discrete_types] * (v.dsize or 1) for v in self.variables]
+        )
+        self.any_discrete = self.discrete.any()
+        self.all_discrete = self.discrete.all()
+        
+        self.stage = 0
+        self.original_indexes = []
+        self.index_track = []
+>>>>>>> smc
 
     def initialize_population(self):
         """
@@ -139,14 +153,18 @@ class SMC:
         if self.save_sim_data:
             self.sim_data = self.likelihood_logp_func.get_data()
 
-    def update_weights_beta(self):
+    def update_weights_beta(self):   ## importance weights (1)
         """
         Calculate the next inverse temperature (beta), the importance weights based on current beta
         and tempered likelihood and updates the marginal likelihood estimation
         """
         low_beta = old_beta = self.beta
         up_beta = 2.0
+<<<<<<< HEAD
         rN = int(len(self.likelihood_logp) * self.threshold)
+=======
+        rN = int(len(self.likelihoods) * self.threshold) # self.likelihoods es cantidad de cadenas y threshold es == 0.5
+>>>>>>> smc
 
         while up_beta - low_beta > 1e-6:
             new_beta = (low_beta + up_beta) / 2.0
@@ -161,21 +179,45 @@ class SMC:
                 low_beta = new_beta
         if new_beta >= 1:
             new_beta = 1
+<<<<<<< HEAD
             log_weights_un = (new_beta - old_beta) * self.likelihood_logp
             log_weights = log_weights_un - logsumexp(log_weights_un)
+=======
+            log_weights_un = (new_beta - old_beta) * self.likelihoods
+            log_weights = log_weights_un - logsumexp(log_weights_un) #guardar pesos normalizados y sin normalizar (es self.weights)
+>>>>>>> smc
 
         self.log_marginal_likelihood += logsumexp(log_weights_un) - np.log(self.draws)
         self.beta = new_beta
         self.weights = np.exp(log_weights)
+        self.weights_un = np.exp(log_weights_un)
+        self.stage += 1
 
     def resample(self):
         """
         Resample particles based on importance weights
         """
+        # llevar registro de los ancestros (todos los puntos finales vienen del mismo ancestro?)
+        # guardar indices de los ancestros de cada paso o buscar en stackexchange
+        # empezar guardando los indices originales unicamente
+        # self.original indexes de 0 a N que son remuestreados
         resampling_indexes = np.random.choice(
             np.arange(self.draws), size=self.draws, p=self.weights
         )
+<<<<<<< HEAD
 
+=======
+        if self.stage == 1:
+            self.index_track.append(resampling_indexes)
+        elif self.stage > 1:
+            stage_original_indexes = np.zeros(self.draws, dtype=np.int32)
+            
+            for index in range(0, len(resampling_indexes)):
+                stage_original_indexes[index] = self.index_track[len(self.index_track)-1][resampling_indexes[index]]
+                
+            self.index_track.append(stage_original_indexes)
+        
+>>>>>>> smc
         self.posterior = self.posterior[resampling_indexes]
         self.prior_logp = self.prior_logp[resampling_indexes]
         self.likelihood_logp = self.likelihood_logp[resampling_indexes]
@@ -185,11 +227,16 @@ class SMC:
         if self.save_sim_data:
             self.sim_data = self.sim_data[resampling_indexes]
 
-    def update_proposal(self):
+    def update_proposal(self): #dividir la matriz de covarianza (clusterizar cadenas)
         """
         Update proposal based on the covariance matrix from tempered posterior
         """
+<<<<<<< HEAD
         cov = np.cov(self.posterior, ddof=0, aweights=self.weights, rowvar=0)
+=======
+
+        cov = np.cov(self.posterior, bias=False, rowvar=0)
+>>>>>>> smc
         cov = np.atleast_2d(cov)
         cov += 1e-6 * np.eye(cov.shape[0])
         if np.isnan(cov).any() or np.isinf(cov).any():

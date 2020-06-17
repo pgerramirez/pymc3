@@ -250,10 +250,29 @@ def sample_smc_int(
     smc.setup_kernel()
     smc.initialize_logp()
 
-    while smc.beta < 1:
+    weights=[]
+    weights_un=[]
+    original_indexes = []
+    index_track = []
+
+    # preguntar acá el valor del posterior para cada indice original
+
+    while smc.beta < 1: #para cada while hay un smc.weights
         smc.update_weights_beta()
+<<<<<<< HEAD
         if _log is not None:
             _log.info(f"Stage: {stage:3d} Beta: {smc.beta:.3f}")
+=======
+        weights.append(smc.weights)
+        weights_un.append(smc.weights_un)
+        _log.info(
+            "Stage: {:3d} Beta: {:.3f} Steps: {:3d} Acce: {:.3f}".format(
+                stage, smc.beta, smc.n_steps, smc.acc_rate
+            )
+        )
+        smc.resample()
+        
+>>>>>>> smc
         smc.update_proposal()
         smc.resample()
         smc.mutate()
@@ -263,6 +282,7 @@ def sample_smc_int(
         accept_ratios.append(smc.acc_rate)
         nsteps.append(smc.n_steps)
 
+<<<<<<< HEAD
     return (
         smc.posterior_to_trace(),
         smc.sim_data,
@@ -271,3 +291,18 @@ def sample_smc_int(
         accept_ratios,
         nsteps,
     )
+=======
+    if smc.parallel and smc.cores > 1:
+        smc.pool.close()
+        smc.pool.join()
+        
+    trace = smc.posterior_to_trace()
+
+    trace.report._n_draws = smc.draws
+    trace.report._n_tune = 0
+    trace.report._t_sampling = time.time() - t1
+    
+    index_track = smc.index_track
+    return trace, weights, weights_un, index_track #return self weights
+
+>>>>>>> smc
